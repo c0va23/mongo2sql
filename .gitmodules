@@ -1,0 +1,3 @@
+[submodule "vendor/gopkg.in/mgo.v2"]
+	path = vendor/gopkg.in/mgo.v2
+	url = https://gopkg.in/mgo.v2
