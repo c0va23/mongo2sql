@@ -1,13 +1,54 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/yuin/gopher-lua"
+
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
-	"github.com/yuin/gopher-lua"
 )
+
+func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error) {
+	o, oExists := data["o"].(map[string]interface{})
+	if !oExists {
+		return nil, fmt.Errorf(`Key "o" not exist`)
+	}
+
+	dataTable := L.NewTable()
+
+	for key, rawValue := range o {
+		switch value := rawValue.(type) {
+		case string:
+			dataTable.RawSetString(key, lua.LString(value))
+		case float64:
+			floatValue := lua.LNumber(value)
+			dataTable.RawSet(lua.LString(key), floatValue)
+		case int:
+			intValue := lua.LNumber(value)
+			dataTable.RawSet(lua.LString(key), intValue)
+		case int64:
+			longValue := lua.LNumber(value)
+			dataTable.RawSet(lua.LString(key), longValue)
+		case bool:
+			boolValue := lua.LBool(value)
+			dataTable.RawSet(lua.LString(key), boolValue)
+		case time.Time:
+			timeValue := lua.LString(value.String())
+			dataTable.RawSet(lua.LString(key), timeValue)
+		case bson.ObjectId:
+			objectIDValue := lua.LString(value.Hex())
+			dataTable.RawSet(lua.LString(key), objectIDValue)
+		default:
+			err := fmt.Errorf("Unknown value %#v for key %s", rawValue, key)
+			return nil, err
+		}
+	}
+
+	return dataTable, nil
+}
 
 func main() {
 	L := lua.NewState()
@@ -31,43 +72,15 @@ func main() {
 	inserted := func(
 		data map[string]interface{},
 	) error {
-		dataTable := L.NewTable()
+		dataTable, dataErr := bsonToTable(L, data)
 
-		o, oExists := data["o"].(map[string]interface{})
-		if !oExists {
-			log.Fatal(`key "o" not exits`)
-		}
-
-		for key, rawValue := range o {
-			switch value := rawValue.(type) {
-			case string:
-				dataTable.RawSetString(key, lua.LString(value))
-			case float64:
-				floatValue := lua.LNumber(value)
-				dataTable.RawSet(lua.LString(key), floatValue)
-			case int:
-				intValue := lua.LNumber(value)
-				dataTable.RawSet(lua.LString(key), intValue)
-			case int64:
-				longValue := lua.LNumber(value)
-				dataTable.RawSet(lua.LString(key), longValue)
-			case bson.ObjectId:
-				objectIDValue := lua.LString(value.Hex())
-				dataTable.RawSet(lua.LString(key), objectIDValue)
-			case time.Time:
-				timeValue := lua.LString(value.String())
-				dataTable.RawSet(lua.LString(key), timeValue)
-			case bool:
-				boolValue := lua.LBool(value)
-				dataTable.RawSet(lua.LString(key), boolValue)
-			default:
-				log.Printf("Unknown value %#v for key %s", rawValue, key)
-			}
+		if dataErr != nil {
+			return dataErr
 		}
 
 		return L.CallByParam(lua.P{
-			Fn: insertedValue,
-			NRet: 0,
+			Fn:      insertedValue,
+			NRet:    0,
 			Protect: true,
 		}, dataTable)
 	}
