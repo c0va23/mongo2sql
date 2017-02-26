@@ -2,6 +2,7 @@ package converter
 
 import (
   "fmt"
+  "log"
   "path"
 
 	"github.com/yuin/gopher-lua"
@@ -63,4 +64,22 @@ func (conv *Converter) Inserted(record map[string]interface{}) error {
 		NRet:    0,
 		Protect: true,
 	}, dataTable)
+}
+
+
+const logOperationKey = "op"
+const operationInsert = "i"
+
+// ProcessOplogRecord accept oplog record and process with operation callback
+func (conv *Converter) ProcessOplogRecord(oplogRecord map[string]interface{}) error {
+	operation := oplogRecord[logOperationKey]
+	switch operation {
+	case operationInsert:
+		if insertErr := conv.Inserted(oplogRecord); nil != insertErr {
+      return insertErr
+		}
+	default:
+		log.Printf(`Unknown operatoin "%s" for %+v`, operation, oplogRecord)
+	}
+  return nil
 }

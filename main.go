@@ -10,8 +10,6 @@ import (
 	"github.com/c0va23/mongo2sql/converter"
 )
 
-const operationKey = "op"
-const operationInsert = "i"
 const convertersDir = "converters"
 
 func main() {
@@ -44,23 +42,15 @@ func main() {
 	db := session.DB("local")
 	oplogCol := db.C("oplog.$main")
 
-	var data map[string]interface{}
-
 	log.Println("Tail")
 	iter := oplogCol.Find(bson.M{"ns": bson.M{ "$in": colNames }}).Tail(-1)
 
-	for iter.Next(&data) {
-		conv := converterMap[data["ns"].(string)]
+	var logRecord map[string]interface{}
+	for iter.Next(&logRecord) {
+		conv := converterMap[logRecord["ns"].(string)]
 
-		operation := data[operationKey]
-		log.Printf(`Operation "%s"`, operation)
-		switch operation {
-		case operationInsert:
-			if printErr := conv.Inserted(data); nil != printErr {
-				log.Fatal(printErr)
-			}
-		default:
-			log.Printf(`Unknown operatoin "%s" for %+v`, operation, data)
+		if processErr := conv.ProcessOplogRecord(logRecord); nil != processErr {
+			log.Fatal(processErr)
 		}
 	}
 
