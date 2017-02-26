@@ -12,14 +12,9 @@ import (
 )
 
 func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error) {
-	o, oExists := data["o"].(map[string]interface{})
-	if !oExists {
-		return nil, fmt.Errorf(`Key "o" not exist`)
-	}
-
 	dataTable := L.NewTable()
 
-	for key, rawValue := range o {
+	for key, rawValue := range data {
 		switch value := rawValue.(type) {
 		case string:
 			dataTable.RawSetString(key, lua.LString(value))
@@ -38,9 +33,16 @@ func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error
 		case time.Time:
 			timeValue := lua.LString(value.String())
 			dataTable.RawSet(lua.LString(key), timeValue)
+		case map[string]interface{}:
+			tableValue, tableErr := bsonToTable(L, value)
+			if nil != tableErr {
+				return nil, tableErr
+			}
+			dataTable.RawSet(lua.LString(key), tableValue)
 		case bson.ObjectId:
 			objectIDValue := lua.LString(value.Hex())
 			dataTable.RawSet(lua.LString(key), objectIDValue)
+		// TODO: Add other types https://docs.mongodb.com/manual/reference/bson-types/
 		default:
 			err := fmt.Errorf("Unknown value %#v for key %s", rawValue, key)
 			return nil, err
@@ -49,6 +51,9 @@ func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error
 
 	return dataTable, nil
 }
+
+const operationKey = "op"
+const operationInsert = "i"
 
 func main() {
 	L := lua.NewState()
@@ -59,6 +64,9 @@ func main() {
 			print("insert")
 			for key, value in pairs(data) do
 				print(key, value)
+				if "flags" == key then
+					print("flags.checked", value.checked)
+				end
 			end
 		end
 	`)
@@ -70,8 +78,13 @@ func main() {
 	log.Printf("insertedValue %+v", insertedValue)
 
 	inserted := func(
-		data map[string]interface{},
+		record map[string]interface{},
 	) error {
+		data, oExists := record["o"].(map[string]interface{})
+		if !oExists {
+			return fmt.Errorf(`Key "o" not exist for %+v`, record)
+		}
+
 		dataTable, dataErr := bsonToTable(L, data)
 
 		if dataErr != nil {
@@ -101,8 +114,15 @@ func main() {
 	iter := oplogCol.Find(bson.M{"ns": "testme.users"}).Tail(-1)
 
 	for iter.Next(&data) {
-		if printErr := inserted(data); nil != printErr {
-			log.Fatal(printErr)
+		operation := data[operationKey]
+		log.Printf(`Operation "%s"`, operation)
+		switch operation {
+		case operationInsert:
+			if printErr := inserted(data); nil != printErr {
+				log.Fatal(printErr)
+			}
+		default:
+			log.Printf(`Unknown operatoin "%s" for %+v`, operation, data)
 		}
 	}
 
