@@ -4,3 +4,6 @@
 [submodule "vendor/github.com/yuin/gopher-lua"]
 	path = vendor/github.com/yuin/gopher-lua
 	url = https://github.com/yuin/gopher-lua
+[submodule "vendor/github.com/lib/pq"]
+	path = vendor/github.com/lib/pq
+	url = https://github.com/lib/pq
