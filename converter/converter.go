@@ -3,6 +3,8 @@ package converter
 import (
   "fmt"
   "path"
+  "database/sql"
+  "log"
 
 	"github.com/yuin/gopher-lua"
 )
@@ -11,6 +13,7 @@ import (
 type Converter struct {
   ColName string
   LuaState *lua.LState
+  db *sql.DB
   insertedFunc *lua.LFunction
   updatedFunc *lua.LFunction
   deletedFunc *lua.LFunction
@@ -19,7 +22,7 @@ type Converter struct {
 const luaExt = ".lua"
 
 // New create new converter
-func New(filePath string) (*Converter, error) {
+func New(filePath string, db *sql.DB) (*Converter, error) {
   fileName := path.Base(filePath)
 
   if fileExt := path.Ext(fileName); luaExt != fileExt {
@@ -50,10 +53,13 @@ func New(filePath string) (*Converter, error) {
   converter := Converter {
     ColName: fileName[0:len(fileName)-len(luaExt)],
     LuaState: luaState,
+    db: db,
     insertedFunc: insertedFunc,
     updatedFunc: updatedFunc,
     deletedFunc: deletedFunc,
   }
+
+  luaState.Register("exec", converter.exec)
 
   return &converter, nil
 }
@@ -164,4 +170,38 @@ func (conv *Converter) ProcessOplogRecord(oplogRecord map[string]interface{}) er
 	default:
 		return fmt.Errorf(`Unknown operatoin "%s" for %+v`, operation, oplogRecord)
 	}
+}
+
+func (conv *Converter) exec(L *lua.LState) int {
+  query := L.ToString(1)
+  args := make([]interface{}, 0, L.GetTop() - 1)
+
+  for i := 2; i <= L.GetTop(); i++ {
+    switch value := L.Get(i).(type) {
+    case lua.LString:
+      args = append(args, string(value))
+    case lua.LNumber:
+      args = append(args, float64(value))
+    case lua.LBool:
+      args = append(args, bool(value))
+    case *lua.LNilType:
+      args = append(args, nil)
+    default:
+      log.Printf("Unknown value: %+v", value)
+    }
+  }
+
+  log.Printf(`Exec "%s" with %+v`, query, args)
+
+  if result, err := conv.db.Exec(query, args...); nil != err {
+    log.Print(err)
+    L.Push(lua.LBool(false))
+  } else if rowsAffected, err := result.RowsAffected(); nil != err {
+    log.Print(err)
+    L.Push(lua.LBool(false))
+  } else {
+    log.Printf("Affected %d rows", rowsAffected)
+    L.Push(lua.LBool(true))
+  }
+  return 1
 }

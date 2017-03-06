@@ -22,7 +22,7 @@ func main() {
 	colNames := make([]string, 0, len(filePaths))
 
 	for _, filePath := range filePaths {
-		conv, err := converter.New(filePath)
+		conv, err := converter.New(filePath, sqlDb)
 		if nil != err {
 			log.Fatal(err)
 		}
