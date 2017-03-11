@@ -7,3 +7,6 @@
 [submodule "vendor/github.com/lib/pq"]
 	path = vendor/github.com/lib/pq
 	url = https://github.com/lib/pq
+[submodule "vendor/github.com/GuiaBolso/darwin"]
+	path = vendor/github.com/GuiaBolso/darwin
+	url = https://github.com/GuiaBolso/darwin
