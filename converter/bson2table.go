@@ -8,7 +8,7 @@ import (
 	"github.com/yuin/gopher-lua"
 )
 
-func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error) {
+func bsonToTable(L *lua.LState, data Document) (*lua.LTable, error) {
 	dataTable := L.NewTable()
 
 	for key, rawValue := range data {
@@ -30,7 +30,7 @@ func bsonToTable(L *lua.LState, data map[string]interface{}) (*lua.LTable, error
 		case time.Time:
 			timeValue := lua.LString(value.String())
 			dataTable.RawSet(lua.LString(key), timeValue)
-		case map[string]interface{}:
+		case Document:
 			tableValue, tableErr := bsonToTable(L, value)
 			if nil != tableErr {
 				return nil, tableErr
