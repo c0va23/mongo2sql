@@ -1,6 +1,7 @@
 package main
 
 import (
+	"time"
 	"log"
 	"database/sql"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/c0va23/mongo2sql/converter"
-	// "github.com/c0va23/mongo2sql/state"
+	"github.com/c0va23/mongo2sql/state"
 )
 
 const convertersDir = "converters"
@@ -45,7 +46,7 @@ func loadConverters(sqlDb *sql.DB) (converterMap, error) {
 	return converters, nil
 }
 
-func bootColl(session *mgo.Session, conv *converter.Converter) error {
+func bootColl(session *mgo.Session, store state.Store, conv *converter.Converter) error {
 	collection := session.DB(conv.DbName).C(conv.ColName)
 	iter := collection.Find(bson.D{}).Iter()
 	defer iter.Close()
@@ -64,11 +65,38 @@ func bootColl(session *mgo.Session, conv *converter.Converter) error {
 	return nil
 }
 
-func bootAll(session *mgo.Session, converters converterMap) {
+func bootAll(session *mgo.Session, store state.Store, converters converterMap) {
 	for _, conv := range converters {
 		log.Printf("Start bootstarap %s", conv.FullName())
-		if bootErr := bootColl(session, conv); nil != bootErr {
+		if exists, err := store.Exists(conv.FullName()); nil != err {
+			log.Print(err)
+			continue
+		} else if !exists {
+			addErr := store.Add(conv.FullName())
+			if nil != addErr {
+				log.Print(addErr)
+				continue
+			}
+			log.Printf("Collection %s initialized", conv.FullName())
+		}
+		if bootstraped, storeErr := store.IsBootstraped(conv.FullName()); nil != storeErr {
+			log.Fatal(storeErr)
+			continue
+		} else if bootstraped {
+			log.Printf("Collection %s already bootstraped", conv.FullName())
+			continue
+		}
+		bootstrapTime := time.Now()
+		if bootErr := bootColl(session, store, conv); nil != bootErr {
 			log.Printf("Bootstarap error: %v", bootErr)
+			continue
+		}
+		if err := store.SetBootstraped(conv.FullName(), true); nil != err {
+			log.Print(err)
+			continue
+		}
+		if err := store.UpdateTimestamp(conv.FullName(), bootstrapTime); nil != err {
+			log.Print(err)
 			continue
 		}
 		log.Printf("End bootstarap %s", conv.FullName())
@@ -110,12 +138,17 @@ func main() {
 	}
 	defer sqlDb.Close()
 
+	store, storeErr := state.NewPgStore(sqlDb)
+	if nil != storeErr {
+		log.Fatal(storeErr)
+	}
+
 	converters, convErr := loadConverters(sqlDb)
 	if nil != convErr {
 		log.Fatal(convErr)
 	}
 
-	bootAll(session, converters)
+	bootAll(session, store, converters)
 
 	processOplog(session, converters)
 }
