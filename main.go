@@ -103,7 +103,12 @@ func bootAll(session *mgo.Session, store state.Store, converters converterMap) {
 	}
 }
 
-func processOplog(session *mgo.Session, converters converterMap) {
+func timestapToTime(ts bson.MongoTimestamp) time.Time {
+	seconds := int64(ts) >> 32
+	return time.Unix(seconds, 0)
+}
+
+func processOplog(session *mgo.Session, store state.Store, converters converterMap) {
 	db := session.DB("local")
 	oplogCol := db.C("oplog.$main")
 
@@ -112,11 +117,30 @@ func processOplog(session *mgo.Session, converters converterMap) {
 
 	var oplogDoc converter.Document
 	for iter.Next(&oplogDoc) {
-		conv := converters[oplogDoc["ns"].(string)]
+		fullName := oplogDoc["ns"].(string)
+		conv := converters[fullName]
+
+		timestamp, tsErr := store.Timestamp(fullName)
+		if nil != tsErr {
+			log.Fatal(tsErr)
+		}
+
+		ts := timestapToTime(oplogDoc["ts"].(bson.MongoTimestamp))
+		log.Printf("ts %s", ts)
+
+		if ts.Before(timestamp) {
+			log.Printf("Skip %s %s", fullName, ts)
+			continue
+		}
 
 		if processErr := conv.ProcessOplogRecord(oplogDoc); nil != processErr {
 			log.Fatal(processErr)
 		}
+
+		if updateErr := store.UpdateTimestamp(fullName, ts); nil != updateErr {
+			log.Fatal(updateErr)
+		}
+		log.Printf("Update timestamp for %s to %s", fullName, ts)
 	}
 
 	if nil != iter.Err() {
@@ -150,5 +174,5 @@ func main() {
 
 	bootAll(session, store, converters)
 
-	processOplog(session, converters)
+	processOplog(session, store, converters)
 }
