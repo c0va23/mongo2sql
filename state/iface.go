@@ -4,19 +4,21 @@ import (
   "time"
 )
 
-// Collection describe current collection state
-// type Collection struct {
-//   Name string
-//   Bootstraped bool
-//   LastTimestamp *time.Time
-// }
+// Timestamp is mapping mongo Timestamp for pg
+type Timestamp struct {
+  time.Time
+  Ordinal int32
+}
+
+// After return true if curemt Timestamp after other
+func (t Timestamp) After(o Timestamp) bool {
+  return t.Time.After(o.Time) || (t == o && t.Ordinal > o.Ordinal)
+}
 
 // Store is interface for state storages
 type Store interface {
   Exists(name string) (bool, error)
-  Add(name string) error
-  SetBootstraped(name string, bootstraped bool) error
-  IsBootstraped(name string) (bool, error)
-  UpdateTimestamp(name string, timestamp time.Time) error
-  Timestamp(name string) (time.Time, error)
+  Add(name string, timestamp Timestamp) error
+  UpdateTimestamp(name string, timestamp Timestamp) error
+  GetTimestamp(name string) (Timestamp, error)
 }

@@ -65,47 +65,42 @@ func bootColl(session *mgo.Session, store state.Store, conv *converter.Converter
 	return nil
 }
 
-func bootAll(session *mgo.Session, store state.Store, converters converterMap) {
+func bootAll(
+	session *mgo.Session,
+	store state.Store,
+	converters converterMap,
+) error {
 	for _, conv := range converters {
 		log.Printf("Start bootstarap %s", conv.FullName())
 		if exists, err := store.Exists(conv.FullName()); nil != err {
-			log.Print(err)
-			continue
-		} else if !exists {
-			addErr := store.Add(conv.FullName())
-			if nil != addErr {
-				log.Print(addErr)
-				continue
-			}
-			log.Printf("Collection %s initialized", conv.FullName())
-		}
-		if bootstraped, storeErr := store.IsBootstraped(conv.FullName()); nil != storeErr {
-			log.Fatal(storeErr)
-			continue
-		} else if bootstraped {
-			log.Printf("Collection %s already bootstraped", conv.FullName())
+			return err
+		} else if exists {
+			log.Printf("Collection already %s initialized", conv.FullName())
 			continue
 		}
-		bootstrapTime := time.Now()
-		if bootErr := bootColl(session, store, conv); nil != bootErr {
-			log.Printf("Bootstarap error: %v", bootErr)
-			continue
+
+		timestamp := state.Timestamp {
+			Time: time.Now().Truncate(time.Second),
 		}
-		if err := store.SetBootstraped(conv.FullName(), true); nil != err {
-			log.Print(err)
-			continue
+		if err := bootColl(session, store, conv); nil != err {
+			return err
 		}
-		if err := store.UpdateTimestamp(conv.FullName(), bootstrapTime); nil != err {
-			log.Print(err)
-			continue
+
+		if err := store.Add(conv.FullName(), timestamp); nil != err {
+			return err
 		}
-		log.Printf("End bootstarap %s", conv.FullName())
+		log.Printf("Finish bootstaraping %s", conv.FullName())
 	}
+	return nil
 }
 
-func timestapToTime(ts bson.MongoTimestamp) time.Time {
+func parseMongoTimestap(ts bson.MongoTimestamp) state.Timestamp {
 	seconds := int64(ts) >> 32
-	return time.Unix(seconds, 0)
+	ordinal := int32(ts & 0xFFFFFFFF)
+	return state.Timestamp {
+		Time: time.Unix(seconds, 0),
+		Ordinal: ordinal,
+	}
 }
 
 func processOplog(session *mgo.Session, store state.Store, converters converterMap) {
@@ -120,15 +115,15 @@ func processOplog(session *mgo.Session, store state.Store, converters converterM
 		fullName := oplogDoc["ns"].(string)
 		conv := converters[fullName]
 
-		timestamp, tsErr := store.Timestamp(fullName)
+		lastTs, tsErr := store.GetTimestamp(fullName)
 		if nil != tsErr {
 			log.Fatal(tsErr)
 		}
 
-		ts := timestapToTime(oplogDoc["ts"].(bson.MongoTimestamp))
+		ts := parseMongoTimestap(oplogDoc["ts"].(bson.MongoTimestamp))
 		log.Printf("ts %s", ts)
 
-		if ts.Before(timestamp) {
+		if !ts.After(lastTs) {
 			log.Printf("Skip %s %s", fullName, ts)
 			continue
 		}
@@ -140,7 +135,7 @@ func processOplog(session *mgo.Session, store state.Store, converters converterM
 		if updateErr := store.UpdateTimestamp(fullName, ts); nil != updateErr {
 			log.Fatal(updateErr)
 		}
-		log.Printf("Update timestamp for %s to %s", fullName, ts)
+		log.Printf("Update timestamp for %s to %+v", fullName, ts)
 	}
 
 	if nil != iter.Err() {
@@ -172,7 +167,9 @@ func main() {
 		log.Fatal(convErr)
 	}
 
-	bootAll(session, store, converters)
+	if err := bootAll(session, store, converters); nil != err {
+		log.Fatal(err)
+	}
 
 	processOplog(session, store, converters)
 }

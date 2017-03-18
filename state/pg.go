@@ -1,7 +1,6 @@
 package state
 
 import (
-  "time"
   "fmt"
   "database/sql"
   "log"
@@ -16,8 +15,9 @@ var migrations = []darwin.Migration{
     Script: `
       CREATE TABLE collection_states(
         name VARCHAR NOT NULL,
-        bootstraped BOOLEAN NOT NULL DEFAULT false,
-        last_timestamp TIMESTAMP
+        last_timestamp TIMESTAMP NOT NULL,
+        last_ordinal INTEGER NOT NULL,
+        PRIMARY KEY (name)
       )
     `,
   },
@@ -47,10 +47,12 @@ func (pgStore *PgStore) Exists(name string) (bool, error) {
 }
 
 // Add new collection into PgStore
-func (pgStore *PgStore) Add(name string) error {
+func (pgStore *PgStore) Add(name string, ts Timestamp) error {
   _, err := pgStore.db.Exec(
-    `INSERT INTO collection_states(name) VALUES($1)`,
+    `INSERT INTO collection_states(name, last_timestamp, last_ordinal) VALUES($1, $2, $3)`,
     name,
+    ts.Time,
+    ts.Ordinal,
   )
   return err
 }
@@ -73,24 +75,12 @@ func checkResult(result sql.Result, name string) error {
   return nil
 }
 
-// SetBootstraped change flag `bootstraped` for collection by `name`
-func (pgStore *PgStore) SetBootstraped(name string, bootstraped bool) error {
-  result, err := pgStore.db.Exec(
-    `UPDATE collection_states SET bootstraped = $1 WHERE name = $2`,
-    bootstraped,
-    name,
-  )
-  if nil != err {
-    return err
-  }
-  return checkResult(result, name)
-}
-
 // UpdateTimestamp update last_timestamp for collection by `name`
-func (pgStore *PgStore) UpdateTimestamp(name string, timestamp time.Time) error {
+func (pgStore *PgStore) UpdateTimestamp(name string, ts Timestamp) error {
   result, err := pgStore.db.Exec(
-    `UPDATE collection_states SET last_timestamp = $1 WHERE name = $2`,
-    timestamp,
+    `UPDATE collection_states SET last_timestamp = $1, last_ordinal = $2 WHERE name = $3`,
+    ts.Time,
+    ts.Ordinal,
     name,
   )
   if nil != err {
@@ -99,28 +89,16 @@ func (pgStore *PgStore) UpdateTimestamp(name string, timestamp time.Time) error 
   return checkResult(result, name)
 }
 
-// IsBootstraped return bootstraped status for collection
-func (pgStore *PgStore) IsBootstraped(name string) (bool, error)  {
+// GetTimestamp return current timestamp
+func (pgStore *PgStore) GetTimestamp(name string) (Timestamp, error) {
   row := pgStore.db.QueryRow(
-    `SELECT bootstraped FROM collection_states WHERE name = $1`,
+    `SELECT last_timestamp, last_ordinal FROM collection_states WHERE name = $1`,
     name,
   )
 
-  var bootstraped bool
-  scanErr := row.Scan(&bootstraped)
-  return bootstraped, scanErr
-}
-
-// Timestamp return current timestamp
-func (pgStore *PgStore) Timestamp(name string) (time.Time, error) {
-  row := pgStore.db.QueryRow(
-    `SELECT last_timestamp FROM collection_states WHERE name = $1`,
-    name,
-  )
-
-  var timestamp time.Time
-  scanErr := row.Scan(&timestamp)
-  return timestamp, scanErr
+  var ts Timestamp
+  err := row.Scan(&ts.Time, &ts.Ordinal)
+  return ts, err
 }
 
 func printMigrationInfo(infoChan chan darwin.MigrationInfo) {
