@@ -10,3 +10,6 @@
 [submodule "vendor/github.com/GuiaBolso/darwin"]
 	path = vendor/github.com/GuiaBolso/darwin
 	url = https://github.com/GuiaBolso/darwin
+[submodule "vendor/gopkg.in/yaml.v2"]
+	path = vendor/gopkg.in/yaml.v2
+	url = https://gopkg.in/yaml.v2
