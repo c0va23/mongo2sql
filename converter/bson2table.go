@@ -1,11 +1,11 @@
 package converter
 
 import (
-  "fmt"
+	"fmt"
 	"time"
 
-	"gopkg.in/mgo.v2/bson"
 	"github.com/yuin/gopher-lua"
+	"gopkg.in/mgo.v2/bson"
 )
 
 func bsonToTable(L *lua.LState, data Document) (*lua.LTable, error) {

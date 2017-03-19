@@ -1,9 +1,9 @@
 package converter
 
 import (
-  "log"
+	"database/sql"
+	"log"
 	"path/filepath"
-  "database/sql"
 )
 
 const convertersDir = "converters"
