@@ -1,15 +1,15 @@
 package main
 
 import (
-	"os"
-	"log"
 	"database/sql"
+	"log"
+	"os"
 
 	"gopkg.in/mgo.v2"
 
 	"github.com/c0va23/mongo2sql/converter"
-	"github.com/c0va23/mongo2sql/state"
 	"github.com/c0va23/mongo2sql/processor"
+	"github.com/c0va23/mongo2sql/state"
 
 	_ "github.com/lib/pq"
 )
