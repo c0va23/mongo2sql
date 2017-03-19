@@ -4,7 +4,8 @@ ADD . /go/src/github.com/c0va23/mongo2sql
 
 # TODO: Not use `go get`
 RUN go install github.com/c0va23/mongo2sql && \
-    rm -r /go/src && \
+    mv /go/bin/mongo2sql /usr/bin/ && \
+    rm -r /go && \
     mkdir /data
 
 WORKDIR /data
