@@ -1,14 +1,37 @@
 # MongoDB to SQL converter
 
-Work in progress
+## Description
 
-## TODO
+Realtime converting MongoDB into SQL database
 
-- [ ] Connect to SQL database (Postgres)
-- [ ] Add safe interface to SQL database for LUA scripts
-- [ ] Handler oplog update records
-- [ ] Handler oplog delete records
-- [ ] Store state into Redis
-- [ ] Bootstrap with collection instread oplog
-- [ ] Configure mongodb connection
-- [ ] Configure SQL connection
+### Suppoted MongoDB versions
+
+- 3.2
+
+### Suported SQL databases
+
+- PostgreSQL
+
+
+## Workflow
+
+1. Add migrations on SQL database
+2. Add converts (lua-scripts)
+3. Run application
+4. Application apple migrations
+5. Application nootstrap new converters
+6. Application start process oplog
+
+## Instruction
+
+### Configure application
+
+TODO
+
+### Add migration
+
+TODO
+
+### Add converts
+
+TODO
