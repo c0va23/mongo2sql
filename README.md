@@ -4,11 +4,11 @@
 
 Realtime converting MongoDB into SQL database
 
-### Suppoted MongoDB versions
+### Supported MongoDB versions
 
 - 3.2
 
-### Suported SQL databases
+### Supported SQL databases
 
 - PostgreSQL
 
