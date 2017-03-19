@@ -101,6 +101,11 @@ func (pgStore *PgStore) GetTimestamp(name string) (Timestamp, error) {
   return ts, err
 }
 
+// Close PgStore
+func (pgStore *PgStore) Close() error {
+  return pgStore.db.Close()
+}
+
 func printMigrationInfo(infoChan chan darwin.MigrationInfo) {
   log.Println("Start migrations")
   for info := range infoChan {

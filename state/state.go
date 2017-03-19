@@ -22,6 +22,7 @@ type Store interface {
   Add(name string, timestamp Timestamp) error
   UpdateTimestamp(name string, timestamp Timestamp) error
   GetTimestamp(name string) (Timestamp, error)
+  Close() error
 }
 
 type storeBuilder func(url string) (Store, error)
