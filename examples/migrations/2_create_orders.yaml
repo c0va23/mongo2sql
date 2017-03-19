@@ -1,0 +1,5 @@
+script: |
+  CREATE TABLE orders(
+    price FLOAT NOT NULL,
+    good_id VARCHAR NOT NULL
+  )

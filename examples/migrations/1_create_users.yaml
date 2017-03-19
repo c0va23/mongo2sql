@@ -1,0 +1,7 @@
+script: |
+  CREATE TABLE users(
+    id VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    name VARCHAR,
+    PRIMARY KEY (id)
+  )
