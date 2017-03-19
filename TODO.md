@@ -11,4 +11,7 @@
 - [ ] SQL query into lua scripts
 - [ ] Add JSON parser into lua scripts
 - [ ] Force bootstrap into migrations
+- [ ] Read oplog from last update_timestamp
 - [ ] Add instruction
+- [ ] Describe BSON to Lua table mapping
+- [ ] Add lua-modules
