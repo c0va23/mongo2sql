@@ -121,7 +121,12 @@ func migrate(db *sql.DB) error {
 }
 
 // NewPgStore create new PgStore
-func NewPgStore(db *sql.DB) (*PgStore, error) {
+func NewPgStore(url string) (Store, error) {
+  db, sqlErr := sql.Open("postgres", url)
+  if nil != sqlErr {
+    return nil, sqlErr
+  }
+
   if migrateErr := migrate(db); nil != migrateErr {
     return nil, migrateErr
   }

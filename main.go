@@ -2,6 +2,7 @@ package main
 
 import (
 	"time"
+	"os"
 	"log"
 	"database/sql"
 	"path/filepath"
@@ -143,21 +144,34 @@ func processOplog(session *mgo.Session, store state.Store, converters converterM
 	}
 }
 
+func fetchEnvvarOrPanic(envvar string) string {
+	val := os.Getenv(envvar)
+	if "" == val {
+		log.Fatalf("Envvar %s is required", envvar)
+	}
+	return val
+}
+
+var stateStoreURL = fetchEnvvarOrPanic("STATE_STORE_URL")
+var stateStoreDriver = fetchEnvvarOrPanic("STATE_STORE_DRIVER")
+var mongodbURL = fetchEnvvarOrPanic("MONGODB_URL")
+
 func main() {
-	log.Println("Dial")
-	session, dialErr := mgo.Dial("mongo")
+	log.Println("Dial mongo")
+	session, dialErr := mgo.Dial(mongodbURL)
 	if nil != dialErr {
-		log.Fatal(dialErr)
+		log.Fatalf("Mongo dial error: %v", dialErr)
 	}
 	defer session.Close()
+	log.Println("Dial mongo is successful")
 
 	sqlDb, sqlErr := initSQLDb()
 	if nil != sqlErr {
-		log.Fatal(sqlErr)
+		log.Fatalf("Database init error: %v", sqlErr)
 	}
 	defer sqlDb.Close()
 
-	store, storeErr := state.NewPgStore(sqlDb)
+	store, storeErr := state.NewStore(stateStoreDriver, stateStoreURL)
 	if nil != storeErr {
 		log.Fatal(storeErr)
 	}

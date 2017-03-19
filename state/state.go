@@ -2,6 +2,7 @@ package state
 
 import (
   "time"
+  "fmt"
 )
 
 // Timestamp is mapping mongo Timestamp for pg
@@ -21,4 +22,20 @@ type Store interface {
   Add(name string, timestamp Timestamp) error
   UpdateTimestamp(name string, timestamp Timestamp) error
   GetTimestamp(name string) (Timestamp, error)
+}
+
+type storeBuilder func(url string) (Store, error)
+
+var drivers = map[string]storeBuilder {
+    "postgres": NewPgStore,
+}
+
+// NewStore create new store with driver
+func NewStore(driver string, url string) (Store, error) {
+  builder, exists := drivers[driver]
+  if !exists {
+    return nil, fmt.Errorf("Unknown driver: %s", driver)
+  }
+
+  return builder(url)
 }
